@@ -1,6 +1,8 @@
+import hashlib
 import resource
 import logging
 import os
+import time
 import collections
 from file_read_backwards import FileReadBackwards
 from skt.gcp import get_bigtable 
@@ -18,7 +20,7 @@ def mutate_rows(table_id, col_names, data):
         for i in range(len(col_names)):
             row.set_cell('data',
             col_names[i],
-            value[i+2].encode('UTF-8'),
+            value[i].encode('utf-8'),
             timestamp)
         if value[0].startswith('D'):
             row.set_cell('others',
@@ -35,25 +37,22 @@ def mutate_rows(table_id, col_names, data):
 
     print(f'Total rows: {len(data)}, Failed rows: {num_errors}')
 
-if __name__ == "__main__":
-    file_path = "./"
-    file_name = "s.dat"
-
-    print(f'File size is {os.stat(file_name).st_size / (1024*1024)}MB');
-    txt_file = open(file_name)
+def process(file_path):  
+    print(f'File size is {os.stat(file_path).st_size / (1024*1024)}MB');
 
     # 800MB reverse iteration + parsing + writing => 5 mins
     format = "%(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO,
             datefmt="%H:%M:%S")
 
-    with FileReadBackwards(file_path + file_name, encoding="euc-kr") as frb:
+    with open(file_path, encoding="euc-kr") as f:
       # getting lines by lines starting from the last line up
-        # 3: OP + TS + EOL
-        expected_col_size = 17+3
+        # 1: End of separator
+        expected_col_size = 17+1
         separator = '@'
-        col_index_key = 2
+        col_index_key = 0
         table_id = "zord_co_cust"
+        hashed_indexes = [0]
         col_names = ["CUST_NUM",
             "CO_CL_CD",
             "AUDIT_ID",
@@ -72,18 +71,26 @@ if __name__ == "__main__":
             "CUST_RGST_DT",
             "CUST_CURNT_DT"]
         data = dict()
-        for l in frb:
-            cols = l.split(separator)
+        m = hashlib.sha256()
+        for line in reversed(list(f)):
+            cols = line.split(chr(0x02))[2:]
             actual_col_size = len(cols)
             if actual_col_size != expected_col_size:
                 error_message = f"Column size mismatch. Actual # of cols is {actual_col_size}"
                 error_message += f", but expected # of cols is {expected_col_size}"
                 raise RuntimeError(error_message) 
+            for hashed_index in hashed_indexes:
+                m.update(cols[hashed_index].encode('utf-8'))
+                cols[hashed_index] = m.hexdigest()
             if cols[col_index_key] in data:
                 logging.debug(f"Found duplicate key: {cols[col_index_key]}")
             else:
                 data[cols[col_index_key]] = cols
-            
-        mutate_rows(table_id, col_names, collections.OrderedDict(sorted(data.items())))
-#                print (cols[col_index_key])
+#            print (cols)
+        mutate_rows(table_id, col_names, data)
 
+if __name__ == "__main__":
+    file_path = "./swing/20201015_001/ZORD_CO_CUST_20201015_001.dat"
+    start = time.time()
+    process(file_path)
+    print(f"elapsed time: {time.time() - start}")

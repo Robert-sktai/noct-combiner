@@ -1,23 +1,20 @@
 import os
 import queue
 import time
-import threading
+import logging
 
-class FileManager(threading.Thread):
-    def __init__(self, root_path):
-        threading.Thread.__init__(self)
-        self._stop_event = threading.Event()
+from thread import Thread
 
-        self.root_path = root_path
+class FileManager(Thread):
+    def __init__(self, context):
+        super().__init__(context=context, level=logging.INFO)
+
         self.last_subdir = ""
-        self.pending_tasks = queue.Queue() 
+        self.pending_tasks_dict = dict()
+        self.swing_migration_tables = self.context.metadata.get_swing_migration_tables()
+        for table_name in self.swing_migration_tables:
+            self.pending_tasks_dict[table_name] = queue.Queue() 
         self.done_tasks = queue.Queue()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
 
     def run(self):
         self.unlock_files()
@@ -28,15 +25,25 @@ class FileManager(threading.Thread):
                 time.sleep(0.5)
 
     def get_subdirs(self):
-        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.root_path) if f.is_dir()])))
+        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.context.incoming_data_path) if f.is_dir()])))
 
     def unlock_files(self): 
         for subdir in self.get_subdirs():
             lock_files = list(filter(lambda x: x.endswith(".dat.locked"), [f.path for f in os.scandir(subdir) if f.is_file()]))
             for lock_file in lock_files:
                 if os.path.isfile(lock_file):
-                    print (f"Unlock file: {lock_file}")
                     os.rename(lock_file, lock_file[:-len(".locked")])
+                    self.debug(f"Unlocked file: {lock_file}")
+
+    def get_table_name_from_path(self, path):
+        try:
+            file_name = path[path.rindex("/")+1:]
+            table_name = file_name[:file_name[:file_name.rindex("_")].rindex("_")]
+            return table_name
+        except ValueError:
+            self.error(f"Parsing error, but ignored: unexpected .dat file name format: {path}")
+        return None
+            
 
     def collect_tasks(self):
         subdirs = list(filter(lambda x: x > self.last_subdir, self.get_subdirs()))
@@ -44,31 +51,36 @@ class FileManager(threading.Thread):
             self.last_subdir = subdirs[-1]
         size = 0
         for subdir in subdirs:
+            self.debug(f"Try to collect tasks from the directory: {subdir}")
             dat_files = list(sorted(filter(lambda x: x.endswith(".dat"), [f.path for f in os.scandir(subdir) if f.is_file()])))
             size += len(dat_files)
             for dat_file in dat_files:
-                print (f"collect_tasks: {dat_file}")
-                self.pending_tasks.put(dat_file)
+                table_name = self.get_table_name_from_path(dat_file)
+                if table_name is None:
+                    continue
+                elif table_name not in self.pending_tasks_dict:
+                    continue
+                self.get_pending_tasks(table_name).put(dat_file)
+                self.debug(f"collected task: {dat_file}")
         return size 
     
-    def get_pending_tasks(self):
-        pending_tasks = []
-        for subdir in self.get_subdirs():
-            dat_files = list(sorted(filter(lambda x: x.endswith(".dat"), [f.path for f in os.scandir(subdir) if f.is_file()])))
-            for dat_file in dat_files:
-                pending_tasks.append(dat_file)
-        return pending_tasks
-
     def close_tasks(self):
         size = self.done_tasks.qsize()
         while not self.done_tasks.empty():
             done_task = self.done_tasks.get()
-            print (f"Close task: {done_task}")
             os.rename(done_task, done_task + ".done")
+            self.debug(f"Closed task: {done_task}")
         return size
 
-    def dispatch_task(self):
-       return None if self.pending_tasks.empty() else self.pending_tasks.get() 
+    def get_pending_tasks(self, table_name):
+        try:
+            return self.pending_tasks_dict[table_name]
+        except KeyError:
+            self.error(f"Not found table name in the dictionary of pending tasks: {table_name} not in {self.pending_tasks_dict.keys()}")
+        return None
+
+    def dispatch_task(self, table_name):
+       return None if self.get_pending_tasks(table_name).empty() else self.get_pending_tasks(table_name).get() 
 
     def close_task(self, task):
        self.done_tasks.put(task) 
