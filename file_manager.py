@@ -17,23 +17,20 @@ class FileManager(Thread):
         self.done_tasks = queue.Queue()
 
     def run(self):
-        self.unlock_files()
+        is_empty_task = False
         while not self.stopped():
             size_of_collected_tasks = self.collect_tasks()
             size_of_done_tasks = self.close_tasks()
             if (size_of_done_tasks + size_of_done_tasks == 0):
+                if not is_empty_task:
+                    self.info("Not found further tasks. Waiting for new tasks.")
+                    is_empty_task = True
                 time.sleep(0.5)
+            else:
+                is_empty_task = False
 
     def get_subdirs(self):
         return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.context.incoming_data_path) if f.is_dir()])))
-
-    def unlock_files(self): 
-        for subdir in self.get_subdirs():
-            lock_files = list(filter(lambda x: x.endswith(".dat.locked"), [f.path for f in os.scandir(subdir) if f.is_file()]))
-            for lock_file in lock_files:
-                if os.path.isfile(lock_file):
-                    os.rename(lock_file, lock_file[:-len(".locked")])
-                    self.debug(f"Unlocked file: {lock_file}")
 
     def get_table_name_from_path(self, path):
         try:

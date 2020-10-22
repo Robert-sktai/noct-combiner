@@ -90,7 +90,7 @@ def process(file_path):
         mutate_rows(table_id, col_names, data)
 
 if __name__ == "__main__":
-    file_path = "./swing/20201015_001/ZORD_CO_CUST_20201015_001.dat"
+    file_path = "/home/svcapp_su/robert/workspace/noct-combiner/swing/20201015_018/ZCLM_VOC_OP_HST_20201015_018.dat"
     start = time.time()
     process(file_path)
     print(f"elapsed time: {time.time() - start}")

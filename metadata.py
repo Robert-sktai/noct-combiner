@@ -7,6 +7,8 @@ class Metadata:
         self.cursor = self.conn.cursor()
         self.cached_swing_tables = None
         self.cached_swing_table_columns = None
+        self.cached_primary_keys_of_swing_tables = None
+        self.cached_primary_key_indexes_of_swing_tables = None
         self.cached_swing_migration_tables = None
 
     def get_swing_tables(self):
@@ -25,6 +27,26 @@ class Metadata:
                 self.cached_swing_table_columns[row[0]].append(row[1])
         return self.cached_swing_table_columns
 
+    def get_primary_keys_of_swing_tables(self):
+        if self.cached_primary_keys_of_swing_tables is None:
+            self.cursor.execute('select table_name, column_name from swing_tables where is_primary_key = 1 order by column_id asc')
+            self.cached_primary_keys_of_swing_tables = dict()
+            for row in self.cursor.fetchall():
+                if row[0] not in self.cached_primary_keys_of_swing_tables:
+                    self.cached_primary_keys_of_swing_tables[row[0]] = list()
+                self.cached_primary_keys_of_swing_tables[row[0]].append(row[1])
+        return self.cached_primary_keys_of_swing_tables
+    
+    def get_primary_key_indexes_of_swing_tables(self):
+        if self.cached_primary_key_indexes_of_swing_tables is None:
+            self.cursor.execute('select table_name, column_id-1 from swing_tables where is_primary_key = 1 order by column_id asc')
+            self.cached_primary_key_indexes_of_swing_tables = dict()
+            for row in self.cursor.fetchall():
+                if row[0] not in self.cached_primary_key_indexes_of_swing_tables:
+                    self.cached_primary_key_indexes_of_swing_tables[row[0]] = list()
+                self.cached_primary_key_indexes_of_swing_tables[row[0]].append(row[1])
+        return self.cached_primary_key_indexes_of_swing_tables
+
     def get_swing_migration_tables(self):
         if self.cached_swing_migration_tables is None:
             self.cursor.execute('select table_name from swing_migration_tables')
@@ -40,5 +62,9 @@ if __name__ == "__main__":
     print (metadata.get_swing_tables())
     print ("\n* get_swing_table_columns()")
     print (metadata.get_swing_table_columns())
+    print ("\n* get_primary_keys_of_swing_tables()")
+    print (metadata.get_primary_keys_of_swing_tables())
+    print ("\n* get_primary_key_indexes_of_swing_tables()")
+    print (metadata.get_primary_key_indexes_of_swing_tables())
     print ("\n* get_swing_migration_tables()")
     print (metadata.get_swing_migration_tables())

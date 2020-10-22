@@ -10,9 +10,10 @@ class Coordinator(Thread):
     def __init__(self):
         incoming_data_path = "/home/svcapp_su/robert/workspace/noct-combiner/swing"
         bigtable_instance_id="sktai-noct-poc"
-        bigtable_table_id="swing"
+        bigtable_table_id="noct"
+        collect_statistics = True
 
-        context = Context(incoming_data_path, bigtable_instance_id, bigtable_table_id)
+        context = Context(incoming_data_path, bigtable_instance_id, bigtable_table_id, collect_statistics)
         super().__init__(context=context, level=logging.INFO)
 
         self.file_manager = FileManager(self.context)
@@ -24,6 +25,7 @@ class Coordinator(Thread):
 
     def run(self):
         self.file_manager.start()
+        self.info("Start workers.")
         for worker in self.workers:
             worker.start()
 
