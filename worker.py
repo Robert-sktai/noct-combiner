@@ -84,7 +84,7 @@ class Worker(Thread):
         self.info(f'# rows: {len(data)}, Failed rows: {num_errors}, File: {file_name}')
 
     def process(self, file_path):  
-        with open(file_path, encoding="cp949") as f:
+        with open(file_path, encoding="cp949", errors="ignore") as f:
           # getting lines by lines starting from the last line up
             # 1: End of separator
             data = dict()
