@@ -3,18 +3,16 @@ import queue
 import time
 import logging
 
-from thread import Thread
+from process import Process
 
-class FileManager(Thread):
-    def __init__(self, context):
-        super().__init__(context=context, level=logging.INFO)
+class FileManager(Process):
+    def __init__(self, log_queue, pending_tasks_dict, done_tasks):
+        super().__init__(log_queue=log_queue)
 
         self.last_subdir = ""
-        self.pending_tasks_dict = dict()
-        self.swing_migration_tables = self.context.metadata.get_swing_migration_tables()
-        for table_name in self.swing_migration_tables:
-            self.pending_tasks_dict[table_name] = queue.Queue() 
-        self.done_tasks = queue.Queue()
+        self.swing_migration_tables = self.config.metadata.get_swing_migration_tables()
+        self.pending_tasks_dict = pending_tasks_dict
+        self.done_tasks = done_tasks
 
     def run(self):
         is_empty_task = False
@@ -30,7 +28,7 @@ class FileManager(Thread):
                 is_empty_task = False
 
     def get_subdirs(self):
-        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.context.incoming_data_path) if f.is_dir()])))
+        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.config.incoming_data_path) if f.is_dir()])))
 
     def get_table_name_from_path(self, path):
         try:
@@ -76,8 +74,3 @@ class FileManager(Thread):
             self.error(f"Not found table name in the dictionary of pending tasks: {table_name} not in {self.pending_tasks_dict.keys()}")
         return None
 
-    def dispatch_task(self, table_name):
-       return None if self.get_pending_tasks(table_name).empty() else self.get_pending_tasks(table_name).get() 
-
-    def close_task(self, task):
-       self.done_tasks.put(task) 

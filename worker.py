@@ -6,40 +6,46 @@ import time
 
 from datetime import datetime
 from skt.gcp import get_bigtable 
-from thread import Thread
+from process import Process
 
 class WorkerStatistics:
     def __init__(self):
+        #TODO
         pass
 
-class Worker(Thread):
-    def __init__(self, context, index, file_manager, table_name):
+class Worker(Process):
+    def __init__(self, log_queue, index, pending_tasks, done_tasks, table_name):
         name = type(self).__name__ + "-" + str(index)
-        super().__init__(context=context, level=logging.INFO, name=name)
-        self.cbt = get_bigtable(instance_id=self.context.bigtable_instance_id, table_id=self.context.bigtable_table_id)
-        self.file_manager = file_manager
+        super().__init__(log_queue=log_queue, level=logging.INFO, name=name)
+        self.cbt = get_bigtable(instance_id=self.config.bigtable_instance_id, table_id=self.config.bigtable_table_id)
+        self.pending_tasks = pending_tasks
+        self.done_tasks = done_tasks
         self.table_name = table_name
-        self.columns = self.context.metadata.get_swing_table_columns()[self.table_name]
-        self.primary_key_indexes = self.context.metadata.get_primary_key_indexes_of_swing_tables()[self.table_name]
-        hashing_identification_column_indexes = self.context.metadata.get_hashing_identification_column_indexes_of_swing_tables()
-        masking_identification_column_indexes = self.context.metadata.get_masking_identification_column_indexes_of_swing_tables()
+        self.columns = self.config.metadata.get_swing_table_columns()[self.table_name]
+        self.primary_key_indexes = self.config.metadata.get_primary_key_indexes_of_swing_tables()[self.table_name]
+        hashing_identification_column_indexes = self.config.metadata.get_hashing_identification_column_indexes_of_swing_tables()
+        masking_identification_column_indexes = self.config.metadata.get_masking_identification_column_indexes_of_swing_tables()
         self.hashing_identification_column_indexes = hashing_identification_column_indexes[self.table_name] if self.table_name in hashing_identification_column_indexes else set()
         self.masking_identification_column_indexes = masking_identification_column_indexes[self.table_name] if self.table_name in masking_identification_column_indexes else set()
         self.expected_num_cols = len(self.columns)+1
         self.sha256 = hashlib.sha256()
-        if self.context.collect_statistics:
-            self.statistics = WorkerStatistics()
+
+    def dispatch_task(self):
+       return None if self.pending_tasks.empty() else self.pending_tasks.get() 
+
+    def close_task(self, task):
+       self.done_tasks.put(task) 
 
     def run(self):
         while not self.stopped():
-            task = self.file_manager.dispatch_task(self.table_name)
+            task = self.dispatch_task()
             if task is not None:
                 try:
                     self.process(task)
                 except Exception as e:
                     self.error(f"Unexpected error: {e} [{task}]")
                     continue
-                self.file_manager.close_task(task)
+                self.close_task(task)
             else:
                 time.sleep(0.005)
 
@@ -80,12 +86,12 @@ class Worker(Thread):
             rows.append(row)
             counter += num_cols 
             if counter + num_cols >= int(1e5):
-                num_errors += self.mutate_rows(rows)
+#                num_errors += self.mutate_rows(rows)
                 rows = []
                 counter = 0
 
-        if counter > 0:
-            num_errors += self.mutate_rows(rows)
+#        if counter > 0:
+#            num_errors += self.mutate_rows(rows)
 
         self.info(f'# rows: {len(data)}, Failed rows: {num_errors}, File: {file_name}')
 
