@@ -18,7 +18,6 @@ class Listener(Process):
         console_handler.setFormatter(formatter)
         root.addHandler(file_handler)
         root.addHandler(console_handler)
-        root.setLevel(logging.INFO)
 
     def run(self):
         while not self.stopped():
@@ -26,4 +25,4 @@ class Listener(Process):
                 record = self.log_queue.get()
                 cur_logger = logging.getLogger(record.name)
                 cur_logger.handle(record)
-                sleep(1)
+                sleep(0.01)
