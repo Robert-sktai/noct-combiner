@@ -10,7 +10,7 @@ class FileManager(Process):
         super().__init__(log_queue=log_queue)
 
         self.last_subdir = ""
-        self.swing_migration_tables = self.config.metadata.get_swing_migration_tables()
+        self.swing_migration_tables = self.metadata.get_swing_migration_tables()
         self.pending_tasks_dict = pending_tasks_dict
         self.done_tasks = done_tasks
 

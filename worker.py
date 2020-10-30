@@ -21,10 +21,10 @@ class Worker(Process):
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
         self.table_name = table_name
-        self.columns = self.config.metadata.get_swing_table_columns()[self.table_name]
-        self.primary_key_indexes = self.config.metadata.get_primary_key_indexes_of_swing_tables()[self.table_name]
-        hashing_identification_column_indexes = self.config.metadata.get_hashing_identification_column_indexes_of_swing_tables()
-        masking_identification_column_indexes = self.config.metadata.get_masking_identification_column_indexes_of_swing_tables()
+        self.columns = self.metadata.get_swing_table_columns()[self.table_name]
+        self.primary_key_indexes = self.metadata.get_primary_key_indexes_of_swing_tables()[self.table_name]
+        hashing_identification_column_indexes = self.metadata.get_hashing_identification_column_indexes_of_swing_tables()
+        masking_identification_column_indexes = self.metadata.get_masking_identification_column_indexes_of_swing_tables()
         self.hashing_identification_column_indexes = hashing_identification_column_indexes[self.table_name] if self.table_name in hashing_identification_column_indexes else set()
         self.masking_identification_column_indexes = masking_identification_column_indexes[self.table_name] if self.table_name in masking_identification_column_indexes else set()
         self.expected_num_cols = len(self.columns)+1
@@ -86,12 +86,12 @@ class Worker(Process):
             rows.append(row)
             counter += num_cols 
             if counter + num_cols >= int(1e5):
-#                num_errors += self.mutate_rows(rows)
+                num_errors += self.mutate_rows(rows)
                 rows = []
                 counter = 0
 
-#        if counter > 0:
-#            num_errors += self.mutate_rows(rows)
+        if counter > 0:
+            num_errors += self.mutate_rows(rows)
 
         self.info(f'# rows: {len(data)}, Failed rows: {num_errors}, File: {file_name}')
 
