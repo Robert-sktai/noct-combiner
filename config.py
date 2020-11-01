@@ -14,6 +14,7 @@ class Config():
                     self.documents[key] = value
 
         self.incoming_data_path = self.documents["incoming_data_path"]
+        self.num_workers = self.documents["num_workers"]
 
         self.bigtable_project_id = self.documents["bigtable"]["project_id"]
         self.bigtable_instance_id = self.documents["bigtable"]["instance_id"]

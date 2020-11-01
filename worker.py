@@ -14,20 +14,12 @@ class WorkerStatistics:
         pass
 
 class Worker(Process):
-    def __init__(self, log_queue, index, pending_tasks, done_tasks, table_name):
+    def __init__(self, log_queue, index, pending_tasks, done_tasks):
         name = type(self).__name__ + "-" + str(index)
         super().__init__(log_queue=log_queue, level=logging.INFO, name=name)
         self.cbt = get_bigtable(instance_id=self.config.bigtable_instance_id, table_id=self.config.bigtable_table_id)
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
-        self.table_name = table_name
-        self.columns = self.metadata.get_swing_table_columns()[self.table_name]
-        self.primary_key_indexes = self.metadata.get_primary_key_indexes_of_swing_tables()[self.table_name]
-        hashing_identification_column_indexes = self.metadata.get_hashing_identification_column_indexes_of_swing_tables()
-        masking_identification_column_indexes = self.metadata.get_masking_identification_column_indexes_of_swing_tables()
-        self.hashing_identification_column_indexes = hashing_identification_column_indexes[self.table_name] if self.table_name in hashing_identification_column_indexes else set()
-        self.masking_identification_column_indexes = masking_identification_column_indexes[self.table_name] if self.table_name in masking_identification_column_indexes else set()
-        self.expected_num_cols = len(self.columns)+1
         self.sha256 = hashlib.sha256()
 
     def dispatch_task(self):
@@ -46,8 +38,9 @@ class Worker(Process):
                     self.error(f"Unexpected error: {e} [{task}]")
                     continue
                 self.close_task(task)
-            else:
                 time.sleep(0.005)
+            else:
+                time.sleep(0.5)
 
     def mutate_rows(self, rows):
         num_errors = 0
@@ -65,38 +58,62 @@ class Worker(Process):
         time_str = datetime_str[datetime_str.rindex("_")+1:]
         return datetime.fromtimestamp(datetime.strptime(date_str, "%Y%m%d").timestamp() + 300 * int(time_str))
 
-    def write(self, data, ops, file_name):
-        rows = []
+    def write(self, data, ops, file_path, table_name, columns):
         num_errors = 0
-        counter = 0
+        curr_size = 0
+        total_size = 0
+        rows = []
+        file_name = file_path[file_path.rindex("/")+1:]
         ts = self.get_timestamp(file_name)
         for key,value in data.items():
             num_cols = len(value)
             row = self.cbt.direct_row(key.encode(encoding="utf-8",errors="ignore"))
-            for i in range(len(self.columns)):
-                row.set_cell(self.table_name,
-                self.columns[i],
+            for i in range(len(columns)):
+                row.set_cell(table_name,
+                columns[i],
                 value[i].encode('utf-8'),
                 ts)
             if ops[key].startswith('D'):
-                row.set_cell(self.table_name,
+                row.set_cell(table_name,
                 'flag_deleted',
                 'true',
                 ts)
             rows.append(row)
-            counter += num_cols 
-            if counter + num_cols >= int(1e5):
+            curr_size += num_cols
+            total_size += num_cols 
+            if curr_size + num_cols >= int(1e5):
                 num_errors += self.mutate_rows(rows)
+                curr_size = 0
                 rows = []
-                counter = 0
 
-        if counter > 0:
+        if curr_size > 0:
             num_errors += self.mutate_rows(rows)
+        self.info(f'# changes: {total_size}, Failed rows: {num_errors}, Files: {file_name}')
 
-        self.info(f'# rows: {len(data)}, Failed rows: {num_errors}, File: {file_name}')
+    def get_table_name_from_path(self, path):
+        try:
+            file_name = path[path.rindex("/")+1:]
+            table_name = file_name[:file_name[:file_name.rindex("_")].rindex("_")]
+            return table_name
+        except ValueError:
+            self.error(f"Parsing error, but ignored: unexpected .dat file name format: {path}")
+        return None
 
     def process(self, file_path):  
         with open(file_path, encoding="cp949", errors="ignore") as f:
+            table_name = self.get_table_name_from_path(file_path)
+            if table_name not in self.metadata.get_swing_migration_tables():
+                return
+            columns = self.metadata.get_swing_table_columns()[table_name]
+            primary_key_indexes = self.metadata.get_primary_key_indexes_of_swing_tables()[table_name]
+            hashing_identification_column_indexes = set() 
+            if table_name in self.metadata.get_hashing_identification_column_indexes_of_swing_tables():
+                hashing_identification_column_indexes = self.metadata.get_hashing_identification_column_indexes_of_swing_tables()[table_name]
+
+            masking_identification_column_indexes = set()
+            if table_name in self.metadata.get_masking_identification_column_indexes_of_swing_tables():
+                masking_identification_column_indexes = self.metadata.get_masking_identification_column_indexes_of_swing_tables()[table_name]
+            self.expected_num_cols = len(columns)+1
             data = dict()
             ops = dict()
             for line in reversed(list(f)):
@@ -108,14 +125,14 @@ class Worker(Process):
                     error_message += f", but expected # of cols is {self.expected_num_cols}. file_path={file_path}"
                     self.error(error_message)
                     raise
-                for index in self.hashing_identification_column_indexes:
+                for index in hashing_identification_column_indexes:
                     self.sha256.update(cols[index].encode('utf-8'))
                     cols[index] = self.sha256.hexdigest()
-                for index in self.masking_identification_column_indexes:
+                for index in masking_identification_column_indexes:
                     cols[index] = "#"
                 key = None
-                for i in self.primary_key_indexes:
-                    key = self.table_name + "#" + cols[i] if key is None else key + "#" + cols[i]
+                for i in primary_key_indexes:
+                    key = table_name + "#" + cols[i] if key is None else key + "#" + cols[i]
                 if key is None:
                     self.error(f"Key is empty: {table_name}")
                 if key in data:
@@ -125,5 +142,4 @@ class Worker(Process):
                     ops[key] = tokens[0]
        
         if len(data) > 0:
-            file_name = file_path[file_path.rindex("/")+1:]
-            self.write(data, ops, file_name)
+            self.write(data, ops, file_path, table_name, columns)

@@ -16,7 +16,7 @@ class Metadata:
     def get_swing_tables(self):
         if self.cached_swing_tables is None:
             self.cursor.execute("select table_name from swing_tables group by table_name")
-            self.cached_swing_tables = [_[0] for _ in self.cursor.fetchall()]
+            self.cached_swing_tables = set([_[0] for _ in self.cursor.fetchall()])
         return self.cached_swing_tables
     
     def get_swing_table_columns(self):
@@ -72,7 +72,7 @@ class Metadata:
     def get_swing_migration_tables(self):
         if self.cached_swing_migration_tables is None:
             self.cursor.execute("select table_name from swing_migration_tables")
-            self.cached_swing_migration_tables = [_[0] for _ in self.cursor.fetchall()]
+            self.cached_swing_migration_tables = set([_[0] for _ in self.cursor.fetchall()])
         return self.cached_swing_migration_tables
 
 

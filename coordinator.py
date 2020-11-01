@@ -22,19 +22,17 @@ if __name__ == "__main__":
     config = Config()
     metadata = Metadata(config.metadata_file)
     log_queue = multiprocessing.Queue(-1)
-    processes.append(Listener(log_queue))
+    listener = Listener(log_queue)
+#    listener.start()
     root_configurer(log_queue, config.logger_level)
-    logger = logging.getLogger(__name__)
 
-    pending_tasks_dict = dict()
-    for table_name in metadata.get_swing_migration_tables():
-        pending_tasks_dict[table_name] = multiprocessing.Queue(-1)
+    pending_tasks = multiprocessing.Queue(-1)
     done_tasks = multiprocessing.Queue(-1)
 
-    processes.append(FileManager(log_queue, pending_tasks_dict, done_tasks))
+    processes.append(FileManager(log_queue, pending_tasks, done_tasks))
     index = 1
-    for table_name in metadata.get_swing_migration_tables():
-        worker = Worker(log_queue, index, pending_tasks_dict[table_name], done_tasks, table_name)
+    for _ in range(0, config.num_workers):
+        worker = Worker(log_queue, index, pending_tasks, done_tasks)
         processes.append(worker)
         index += 1
 
@@ -44,4 +42,4 @@ if __name__ == "__main__":
     for process in processes:
         process.join()
 
-    logger.info("Bye :)")
+    logger.info("* Bye :)")

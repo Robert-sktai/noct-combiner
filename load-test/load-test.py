@@ -18,10 +18,11 @@ if __name__ == "__main__":
     config = Config()
     log_queue = multiprocessing.Queue(-1)
     listener = Listener(log_queue)
-    listener.start()
+#    listener.start()
 
     root_configurer(log_queue, config.logger_level)
     logger = logging.getLogger(__name__)
+    logger.info("* start")
 
     workers = list()
     for index in range(0, config.server_num_workers):

@@ -1,5 +1,5 @@
 - server:
-    num_workers: 32
+    num_workers: 1
 - bigtable:
     project_id: "sktai-datahub"
     instance_id: "sktai-noct-poc"

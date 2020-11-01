@@ -1,4 +1,5 @@
 - incoming_data_path: "swing"
+- num_workers: 40
 - bigtable:
     project_id: "sktai-datahub"
     instance_id: "sktai-noct-poc"

@@ -22,6 +22,7 @@ class Process(multiprocessing.Process):
         self.stop()
 
     def stop(self):
+        self.info("Stopped")
         self.stop_event.set()
 
     def stopped(self):
