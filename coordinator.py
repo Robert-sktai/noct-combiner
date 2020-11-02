@@ -25,12 +25,14 @@ if __name__ == "__main__":
     listener = Listener(log_queue)
 #    listener.start()
     root_configurer(log_queue, config.logger_level)
+    logger = logging.getLogger(__name__)
 
     pending_tasks = multiprocessing.Queue(-1)
     done_tasks = multiprocessing.Queue(-1)
 
     processes.append(FileManager(log_queue, pending_tasks, done_tasks))
     index = 1
+    logger.info("* Program has been started...")
     for _ in range(0, config.num_workers):
         worker = Worker(log_queue, index, pending_tasks, done_tasks)
         processes.append(worker)

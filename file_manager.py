@@ -21,7 +21,7 @@ class FileManager(Process):
             size_of_done_tasks = self.close_tasks()
             if (size_of_done_tasks + size_of_done_tasks == 0):
                 if not is_empty_task:
-                    self.info("Not found further tasks. Waiting for new tasks.")
+                    self.info(f"Waiting for new incoming tasks.\nThe size of pending task queue: {self.pending_tasks.qsize()}, The size of done task queue: {self.done_tasks.qsize()}")
                     is_empty_task = True
                 time.sleep(0.5)
             else:
