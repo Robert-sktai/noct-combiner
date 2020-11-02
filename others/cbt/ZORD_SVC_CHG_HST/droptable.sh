@@ -1,0 +1,1 @@
+cbt deletetable ZORD_SVC_CHG_HST

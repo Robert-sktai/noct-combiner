@@ -1,0 +1,1 @@
+cbt deletetable noct
