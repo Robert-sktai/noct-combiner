@@ -19,6 +19,7 @@ class Config():
         self.bigtable_project_id = self.documents["bigtable"]["project_id"]
         self.bigtable_instance_id = self.documents["bigtable"]["instance_id"]
         self.bigtable_table_id = self.documents["bigtable"]["table_id"]
+        self.bigtable_app_profile_id = self.documents["bigtable"]["app_profile_id"]
 
         self.logger_file = self.documents["logger"]["file"]
         self.logger_level = logging.getLevelName(self.documents["logger"]["level"])

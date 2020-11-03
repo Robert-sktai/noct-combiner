@@ -1,9 +1,10 @@
-- incoming_data_path: "swing"
+- incoming_data_path: "/home/noct/swing"
 - num_workers: 40
 - bigtable:
     project_id: "sktai-datahub"
     instance_id: "sktai-noct-poc"
     table_id: "noct-test"
+    app_profile_id: "writer"
 - logger:
     file: "my.log"
     level: "INFO"

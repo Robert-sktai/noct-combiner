@@ -17,7 +17,7 @@ class Worker(Process):
     def __init__(self, log_queue, index, pending_tasks, done_tasks):
         name = type(self).__name__ + "-" + str(index)
         super().__init__(log_queue=log_queue, level=logging.INFO, name=name)
-        self.cbt = get_bigtable(instance_id=self.config.bigtable_instance_id, table_id=self.config.bigtable_table_id)
+        self.cbt = get_bigtable(instance_id=self.config.bigtable_instance_id, table_id=self.config.bigtable_table_id, app_profile_id=self.config.bigtable_app_profile_id)
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
         self.sha256 = hashlib.sha256()
@@ -28,19 +28,21 @@ class Worker(Process):
     def close_task(self, task):
        self.done_tasks.put(task) 
 
+    def filter(self, task):
+        return self.get_table_name_from_path(task) in self.metadata.get_swing_migration_tables()
+
     def run(self):
         while not self.stopped():
             task = self.dispatch_task()
             if task is not None:
                 try:
-                    self.process(task)
+                    if self.filter(task):
+                        self.process(task)
+                        self.close_task(task)
                 except Exception as e:
                     self.error(f"Unexpected error: {e} [{task}]")
-                    continue
-                self.close_task(task)
-                time.sleep(0.005)
             else:
-                time.sleep(0.5)
+                time.sleep(0.1)
 
     def mutate_rows(self, rows):
         num_errors = 0
@@ -88,6 +90,8 @@ class Worker(Process):
 
         if curr_size > 0:
             num_errors += self.mutate_rows(rows)
+            curr_size = 0
+            rows = []
         self.info(f'# changes: {total_size}, Failed rows: {num_errors}, Files: {file_name}')
 
     def get_table_name_from_path(self, path):
@@ -102,8 +106,6 @@ class Worker(Process):
     def process(self, file_path):  
         with open(file_path, encoding="cp949", errors="ignore") as f:
             table_name = self.get_table_name_from_path(file_path)
-            if table_name not in self.metadata.get_swing_migration_tables():
-                return
             columns = self.metadata.get_swing_table_columns()[table_name]
             primary_key_indexes = self.metadata.get_primary_key_indexes_of_swing_tables()[table_name]
             hashing_identification_column_indexes = set() 
