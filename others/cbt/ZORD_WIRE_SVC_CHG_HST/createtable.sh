@@ -1,0 +1,1 @@
+cbt createtable ZORD_WIRE_SVC_CHG_HST "families=ZORD_WIRE_SVC_CHG_HST"

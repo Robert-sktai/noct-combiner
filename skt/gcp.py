@@ -122,10 +122,10 @@ def bq_to_pandas(query, project_id="sktaic-datahub"):
         query=query, project_id=project_id, dialect="standard", use_bqstorage_api=True, configuration=configuration
     )
 
-def get_bigtable(instance_id, table_id, project_id="sktaic-datahub"):
+def get_bigtable(instance_id, table_id, project_id="sktaic-datahub", app_profile_id=None):
     client = bigtable.Client(project=project_id)
     instance = client.instance(instance_id)
-    return instance.table(table_id)
+    return instance.table(table_id=table_id, app_profile_id=app_profile_id)
 
 def _bq_table_to_df(dataset, table_name, col_list, partition=None, where=None, spark_session=None):
     import base64

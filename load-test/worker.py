@@ -12,7 +12,8 @@ class Worker(Process):
         super().__init__(log_queue=log_queue, name=name)
         self.client = bigtable.Client(admin=True, project=self.config.bigtable_project_id)
         self.instance = self.client.instance(self.config.bigtable_instance_id)
-        self.table = self.instance.table(self.config.bigtable_table_id)
+        # TODO: removal of the constant table name 
+        self.table = self.instance.table("load-test")
         self.data = self.generate_data()
 
     def run(self):
@@ -20,6 +21,7 @@ class Worker(Process):
             self.write()
         except Exception as e:
             self.error(e)
+        self.info("Worker has been stopped")
 
     def generate_data(self):
         data = dict()
@@ -63,11 +65,10 @@ class Worker(Process):
                 rows.append(row)
                 counter += num_cols
                 if counter + num_cols >= int(1e5):
-                    num_errors += self.mutate_rows(rows)
+#                    num_errors += self.mutate_rows(rows)
                     self.info(f'# of cells: {counter}, Failed rows: {num_errors}')
                     rows = []
                     counter = 0
-        self.info("Thread is stopped")
     
     def write_single(self):
         num_errors = 0

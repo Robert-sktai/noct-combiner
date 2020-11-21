@@ -3,18 +3,16 @@ import queue
 import time
 import logging
 
-from thread import Thread
+from process import Process
 
-class FileManager(Thread):
-    def __init__(self, context):
-        super().__init__(context=context, level=logging.INFO)
+class FileManager(Process):
+    def __init__(self, log_queue, pending_tasks, done_tasks):
+        super().__init__(log_queue=log_queue)
 
         self.last_subdir = ""
-        self.pending_tasks_dict = dict()
-        self.swing_migration_tables = self.context.metadata.get_swing_migration_tables()
-        for table_name in self.swing_migration_tables:
-            self.pending_tasks_dict[table_name] = queue.Queue() 
-        self.done_tasks = queue.Queue()
+        self.swing_migration_tables = self.metadata.get_swing_migration_tables()
+        self.pending_tasks = pending_tasks
+        self.done_tasks = done_tasks
 
     def run(self):
         is_empty_task = False
@@ -23,24 +21,14 @@ class FileManager(Thread):
             size_of_done_tasks = self.close_tasks()
             if (size_of_done_tasks + size_of_done_tasks == 0):
                 if not is_empty_task:
-                    self.info("Not found further tasks. Waiting for new tasks.")
+                    self.info(f"Waiting for new incoming tasks.\nThe size of pending task queue: {self.pending_tasks.qsize()}, The size of done task queue: {self.done_tasks.qsize()}")
                     is_empty_task = True
                 time.sleep(0.5)
             else:
                 is_empty_task = False
 
     def get_subdirs(self):
-        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.context.incoming_data_path) if f.is_dir()])))
-
-    def get_table_name_from_path(self, path):
-        try:
-            file_name = path[path.rindex("/")+1:]
-            table_name = file_name[:file_name[:file_name.rindex("_")].rindex("_")]
-            return table_name
-        except ValueError:
-            self.error(f"Parsing error, but ignored: unexpected .dat file name format: {path}")
-        return None
-            
+        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.config.incoming_data_path) if f.is_dir()])))
 
     def collect_tasks(self):
         subdirs = list(filter(lambda x: x > self.last_subdir, self.get_subdirs()))
@@ -52,12 +40,7 @@ class FileManager(Thread):
             dat_files = list(sorted(filter(lambda x: x.endswith(".dat"), [f.path for f in os.scandir(subdir) if f.is_file()])))
             size += len(dat_files)
             for dat_file in dat_files:
-                table_name = self.get_table_name_from_path(dat_file)
-                if table_name is None:
-                    continue
-                elif table_name not in self.pending_tasks_dict:
-                    continue
-                self.get_pending_tasks(table_name).put(dat_file)
+                self.pending_tasks.put(dat_file)
                 self.debug(f"collected task: {dat_file}")
         return size 
     
@@ -68,16 +51,3 @@ class FileManager(Thread):
             os.rename(done_task, done_task + ".done")
             self.debug(f"Closed task: {done_task}")
         return size
-
-    def get_pending_tasks(self, table_name):
-        try:
-            return self.pending_tasks_dict[table_name]
-        except KeyError:
-            self.error(f"Not found table name in the dictionary of pending tasks: {table_name} not in {self.pending_tasks_dict.keys()}")
-        return None
-
-    def dispatch_task(self, table_name):
-       return None if self.get_pending_tasks(table_name).empty() else self.get_pending_tasks(table_name).get() 
-
-    def close_task(self, task):
-       self.done_tasks.put(task) 

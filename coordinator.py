@@ -1,34 +1,47 @@
 import os
 import logging
+import multiprocessing
 
-from context import Context
-from thread import Thread
+
+from config import Config
+from metadata import Metadata
+from logging import handlers
+from listener import Listener
+from process import Process
 from file_manager import FileManager
 from worker import Worker
 
-class Coordinator(Thread):
-    def __init__(self):
-        incoming_data_path = "/home/svcapp_su/robert/workspace/noct-combiner/swing"
-        bigtable_instance_id="sktai-noct-poc"
-        bigtable_table_id="noct"
-        collect_statistics = True
-
-        context = Context(incoming_data_path, bigtable_instance_id, bigtable_table_id, collect_statistics)
-        super().__init__(context=context, level=logging.INFO)
-
-        self.file_manager = FileManager(self.context)
-        self.workers = list()
-        index = 1
-        for table_name in self.context.metadata.get_swing_migration_tables():
-            self.workers.append(Worker(self.context, index, self.file_manager, table_name))
-            index += 1
-
-    def run(self):
-        self.file_manager.start()
-        self.info("Start workers.")
-        for worker in self.workers:
-            worker.start()
+def root_configurer(log_queue, level):
+    h = handlers.QueueHandler(log_queue)
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(level)
 
 if __name__ == "__main__":
-    coordinator = Coordinator()
-    coordinator.start()
+    processes = list()
+    config = Config()
+    metadata = Metadata(config.metadata_file)
+    log_queue = multiprocessing.Queue(-1)
+    listener = Listener(log_queue)
+#    listener.start()
+    root_configurer(log_queue, config.logger_level)
+    logger = logging.getLogger(__name__)
+
+    pending_tasks = multiprocessing.Queue(-1)
+    done_tasks = multiprocessing.Queue(-1)
+
+    processes.append(FileManager(log_queue, pending_tasks, done_tasks))
+    index = 1
+    logger.info("* Program has been started...")
+    for _ in range(0, config.num_workers):
+        worker = Worker(log_queue, index, pending_tasks, done_tasks)
+        processes.append(worker)
+        index += 1
+
+    for process in processes:
+        process.start()
+
+    for process in processes:
+        process.join()
+
+    logger.info("* Bye :)")

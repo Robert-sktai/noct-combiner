@@ -12,5 +12,4 @@
 
 ## Run
 
-- Currently coordinator.py is a main module. Before you start the program, you might need to modify some configurations in the file.
-The configuration will be moved to a config file written by YAML. The program requires Python3: `python3 coordinator.py`
+- A main module is `coordinator.py`. Before you start the program, you might need to modify some configurations in the file `conf/config.yml` written by YAML. The program can start with Python3 like `python3 coordinator.py`.

@@ -1,10 +1,12 @@
+- server:
+    num_workers: 1
 - bigtable:
     project_id: "sktai-datahub"
-    instance_id: "sktai-noct-load-test"
-    table_id: "test-parallelism"
+    instance_id: "sktai-noct-poc"
+    table_id: "noct-test"
 - logger:
     file: "my.log"
-    level:
-    max_bytes:
-    backup_count:
+    level: "INFO"
+    max_bytes: 512*1024*1024
+    backup_count: 5
 
