@@ -12,7 +12,8 @@ class Worker(Process):
         super().__init__(log_queue=log_queue, name=name)
         self.client = bigtable.Client(admin=True, project=self.config.bigtable_project_id)
         self.instance = self.client.instance(self.config.bigtable_instance_id)
-        self.table = self.instance.table(self.config.bigtable_table_id)
+        # TODO: removal of the constant table name 
+        self.table = self.instance.table("load-test")
         self.data = self.generate_data()
 
     def run(self):

@@ -1,9 +1,8 @@
-- incoming_data_path: "/home/noct/swing"
+- incoming_data_path: "/swing/noct_snapshot_20201116"
 - num_workers: 40
 - bigtable:
     project_id: "sktai-datahub"
     instance_id: "sktai-noct-poc"
-    table_id: "noct-test"
     app_profile_id: "writer"
 - logger:
     file: "my.log"
@@ -11,4 +10,5 @@
     max_bytes: 512*1024*1024
     backup_count: 5
 - metadata:
+    rowkey_url: "http://etl.sktai.io/v1/swing_rowkey/"
     file: "metadata.db"
