@@ -6,13 +6,15 @@ import logging
 from process import Process
 
 class FileManager(Process):
-    def __init__(self, log_queue, pending_tasks, done_tasks):
+    def __init__(self, log_queue, pending_tasks, done_tasks, slack_queue):
         super().__init__(log_queue=log_queue)
 
         self.last_subdir = ""
         self.swing_migration_tables = self.metadata.get_swing_migration_tables()
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
+        self.slack_queue = slack_queue 
+        self.prev_subdir = None
 
     def run(self):
         is_empty_task = False
@@ -28,10 +30,29 @@ class FileManager(Process):
                 is_empty_task = False
 
     def get_subdirs(self):
-        return list(sorted(filter(lambda x: not x.endswith("_tmp"), [f.path for f in os.scandir(self.config.incoming_data_path) if f.is_dir()])))
+        return list(sorted(filter(lambda x: not( (x.endswith("_tmp") or (len(x)-x.rfind("_")-1 > 3))), [f.path for f in os.scandir(self.config.incoming_data_path) if f.is_dir()])))
+
+    def validate(self, subdirs):
+        for subdir in subdirs:
+            prev = None if self.prev_subdir is None else self.prev_subdir[self.prev_subdir.rfind("_")+1:]
+            curr = subdir[subdir.rfind("_")+1:]
+            failed = False
+            if prev is not None:
+                if curr == '001':
+                    if prev != '288':
+                        failed = True
+                else:
+                    if int(prev)+1 != int(curr):
+                        failed = True
+            if failed:
+                msg = f"""Found a missing subdir between '{self.prev_subdir}' and '{subdir}'"""
+                self.error(msg)
+                self.slack_queue.put(msg)
+            self.prev_subdir = subdir
 
     def collect_tasks(self):
         subdirs = list(filter(lambda x: x > self.last_subdir, self.get_subdirs()))
+        self.validate(subdirs)
         if len(subdirs) > 0:
             self.last_subdir = subdirs[-1]
         size = 0

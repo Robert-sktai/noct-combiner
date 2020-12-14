@@ -1,4 +1,4 @@
-- incoming_data_path: "/swing/noct_snapshot_20201116"
+- incoming_data_path: "/swing/noct"
 - num_workers: 40
 - bigtable:
     project_id: "sktai-datahub"
@@ -12,3 +12,7 @@
 - metadata:
     rowkey_url: "http://etl.sktai.io/v1/swing_rowkey/"
     file: "metadata.db"
+- slack:
+    username: "noct-validation-bot"
+    channel: "aidt-coe-swing-noti"
+    icon_emoji: ":x:"

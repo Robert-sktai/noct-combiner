@@ -28,6 +28,10 @@ class Config():
         self.metadata_file = self.documents["metadata"]["file"]
         self.metadata_rowkey_url = self.documents["metadata"]["rowkey_url"]
 
+        self.slack_username = self.documents["slack"]["username"]
+        self.slack_channel = self.documents["slack"]["channel"]
+        self.slack_icon_emoji = self.documents["slack"]["icon_emoji"]
+
 if __name__ == "__main__":
     config = Config(r"./conf/config.yaml")
     print (config.documents)

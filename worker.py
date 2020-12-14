@@ -14,11 +14,12 @@ class WorkerStatistics:
         pass
 
 class Worker(Process):
-    def __init__(self, log_queue, index, pending_tasks, done_tasks):
+    def __init__(self, log_queue, index, pending_tasks, done_tasks, slack_queue):
         name = type(self).__name__ + "-" + str(index)
         super().__init__(log_queue=log_queue, level=logging.INFO, name=name)
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
+        self.slack_queue = slack_queue 
 
     def dispatch_task(self):
        return None if self.pending_tasks.empty() else self.pending_tasks.get() 
@@ -39,7 +40,9 @@ class Worker(Process):
                         self.close_task(task)
                 except Exception as e:
                     self.logger.exception(e)
-                    self.error(f"Unexpected error: {e} [{task}]")
+                    msg = f"Unexpected error: {e} [{task}]"
+                    self.error(msg)
+                    self.slack_queue.put(msg)
                     continue
                 time.sleep(0.005)
             else:
@@ -114,6 +117,16 @@ class Worker(Process):
             key = cols[primary_key_dict[pk]] if key is None else key + "#" + cols[primary_key_dict[pk]]
         return key
 
+    def validate(self, file_path, lines):
+        eof_file_path = file_path[:file_path.rfind(".dat")] + ".eof"
+        with open(eof_file_path, encoding="cp949", errors="ignore") as f:
+            tokens = list(f)[0].split(chr(0x02))
+            expected_lines = tokens[2]
+            if len(lines) != int(expected_lines):
+                msg = f"""Inconsistent # of lines between the actual and the exepected: {len(lines)} != {expected_lines}. {file_path}"""
+                self.error(msg)
+                self.slack_queue.put(msg)
+
     def process(self, file_path):  
         with open(file_path, encoding="cp949", errors="ignore") as f:
             table_name = self.get_table_name_from_path(file_path)
@@ -132,15 +145,18 @@ class Worker(Process):
             self.expected_num_cols = len(columns)+1
             data = dict()
             ops = dict()
-            for line in reversed(list(f)):
+            lines = list(f)
+            self.validate(file_path, lines)
+            for line in reversed(lines):
                 tokens = line.split(chr(0x02))
                 cols = tokens[2:]
                 num_cols = len(cols)
 
                 if num_cols != self.expected_num_cols:
-                    error_message = f"Column size mismatch. Actual # of cols is {num_cols}"
-                    error_message += f", but expected # of cols is {self.expected_num_cols}. file_path={file_path}"
-                    self.error(error_message)
+                    msg = f"Column size mismatch. Actual # of cols is {num_cols}"
+                    msg += f", but expected # of cols is {self.expected_num_cols}. file_path={file_path}"
+                    self.error(msg)
+                    self.slack_queue.put(msg)
                     raise
                 for index in hashing_identification_column_indexes:
                     sha256 = hashlib.sha256()
