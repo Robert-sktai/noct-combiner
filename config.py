@@ -15,6 +15,8 @@ class Config():
 
         self.incoming_data_path = self.documents["incoming_data_path"]
         self.num_workers = self.documents["num_workers"]
+        self.report_interval = self.documents["report_interval"]
+        self.data_expiry = self.documents["data_expiry"]
 
         self.bigtable_project_id = self.documents["bigtable"]["project_id"]
         self.bigtable_instance_id = self.documents["bigtable"]["instance_id"]

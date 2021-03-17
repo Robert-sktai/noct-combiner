@@ -5,48 +5,57 @@ import os
 import time
 
 from datetime import datetime
-from skt.gcp import get_bigtable 
+from skt.gcp import get_bigtable
 from process import Process
 
-class WorkerStatistics:
-    def __init__(self):
-        #TODO
-        pass
-
 class Worker(Process):
-    def __init__(self, log_queue, index, pending_tasks, done_tasks, slack_queue):
+    def __init__(self, log_queue, index, pending_tasks, done_tasks, error_tasks, slack_queue):
         name = type(self).__name__ + "-" + str(index)
         super().__init__(log_queue=log_queue, level=logging.INFO, name=name)
         self.pending_tasks = pending_tasks
         self.done_tasks = done_tasks
-        self.slack_queue = slack_queue 
+        self.error_tasks = error_tasks
+        self.slack_queue = slack_queue
+        self.last = time.time()
 
     def dispatch_task(self):
-       return None if self.pending_tasks.empty() else self.pending_tasks.get() 
+       return None if self.pending_tasks.empty() else self.pending_tasks.get()
 
     def close_task(self, task):
-       self.done_tasks.put(task) 
+       self.done_tasks.put(task)
+
+    def error_task(self, task):
+       self.error_tasks.put(task)
 
     def filter(self, task):
-        return self.get_table_name_from_path(task) in self.metadata.get_swing_migration_tables()
+        return os.path.exists(task) and self.get_table_name_from_path(task) in self.metadata.get_swing_migration_tables()
+
+    def elapsed_time(self):
+        duration = time.time() - self.last
+        self.last = time.time()
+        return duration
 
     def run(self):
         while not self.stopped():
             task = self.dispatch_task()
-            if task is not None:
-                try:
-                    if self.filter(task):
-                        self.process(task)
-                        self.close_task(task)
-                except Exception as e:
-                    self.logger.exception(e)
-                    msg = f"Unexpected error: {e} [{task}]"
-                    self.error(msg)
-                    self.slack_queue.put(msg)
+            try:
+                if task is None:
+                    time.sleep(0.5)
                     continue
+                self.debug(f"[1] took a task: {task} [{self.elapsed_time()} secs]")
+                if not os.path.isfile(task):
+                    continue
+                if self.filter(task):
+                    self.process(task)
+                    self.close_task(task)
                 time.sleep(0.005)
-            else:
-                time.sleep(0.1)
+            except Exception as e:
+                self.logger.exception(e)
+                msg = f"Unexpected error: {e} [{task}]"
+                self.error(msg)
+                self.error_task(task)
+#                self.slack_queue.put(msg)
+                continue
 
     def mutate_rows(self, cbt, rows):
         num_errors = 0
@@ -71,7 +80,7 @@ class Worker(Process):
         rows = []
         file_name = file_path[file_path.rindex("/")+1:]
         ts = self.get_timestamp(file_name)
-        # TODO: reuse of cbt 
+        # TODO: reuse of cbt
         cbt = get_bigtable(instance_id=self.config.bigtable_instance_id,
                            app_profile_id=self.config.bigtable_app_profile_id,
                            table_id=table_name)
@@ -90,7 +99,7 @@ class Worker(Process):
                 ts)
             rows.append(row)
             curr_size += num_cols
-            total_size += num_cols 
+            total_size += num_cols
             if curr_size + num_cols >= int(1e5):
                 num_errors += self.mutate_rows(cbt, rows)
                 curr_size = 0
@@ -125,9 +134,9 @@ class Worker(Process):
             if len(lines) != int(expected_lines):
                 msg = f"""Inconsistent # of lines between the actual and the exepected: {len(lines)} != {expected_lines}. {file_path}"""
                 self.error(msg)
-                self.slack_queue.put(msg)
+#                self.slack_queue.put(msg)
 
-    def process(self, file_path):  
+    def process(self, file_path):
         with open(file_path, encoding="cp949", errors="ignore") as f:
             table_name = self.get_table_name_from_path(file_path)
             columns = self.metadata.get_swing_table_columns()[table_name]
@@ -135,7 +144,7 @@ class Worker(Process):
             if table_name in self.metadata.get_primary_keys_of_swing_tables():
                 primary_key_dict = self.metadata.get_primary_keys_of_swing_tables()[table_name]
 
-            hashing_identification_column_indexes = set() 
+            hashing_identification_column_indexes = set()
             if table_name in self.metadata.get_hashing_identification_column_indexes_of_swing_tables():
                 hashing_identification_column_indexes = self.metadata.get_hashing_identification_column_indexes_of_swing_tables()[table_name]
 
@@ -174,5 +183,6 @@ class Worker(Process):
                     data[key] = cols
                     ops[key] = tokens[0]
 
+        self.debug(f"[2] processed a task: {file_path} [{self.elapsed_time()} secs]")
         if len(data) > 0:
             self.write(data, ops, file_path, table_name, columns)
