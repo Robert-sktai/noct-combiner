@@ -1,0 +1,152 @@
+FROM centos:centos8
+
+USER root
+
+RUN yum install -y \
+    telnet \
+    vim \
+    rsync \
+    cronie \
+    net-tools \
+    wget \
+    curl \
+    tar \
+    git \
+    jq \
+    sudo \
+    which \
+    less \
+    tmux \
+    iptables-services \
+    python38 \
+    nfs-utils \
+    gcc \
+    gcc-c++ \
+    python3-devel \
+    python3-lxml \
+    python38-Cython \
+    git \
+    cmake \
+    cyrus-sasl-devel \
+    sqlite
+
+RUN pip3 install \
+    aiohttp \
+    async-timeout \
+    attrs \
+    backcall \
+    bayesian-optimization \
+    boto3 \
+    botocore \
+    cachetools \
+    catboost \
+    certifi \
+    cffi \
+    chardet \
+    click \
+    cycler \
+    dataclasses \
+    decorator \
+    Deprecated \
+    docutils \
+    Flask \
+    Flask-Cors \
+    Flask-Login \
+    future \
+    google-api-core \
+    google-api-python-client \
+    google-auth \
+    google-auth-httplib2 \
+    google-cloud-bigquery \
+    google-cloud-bigquery-storage \
+    google-cloud-bigtable \
+    google-cloud-core \
+    google-cloud-storage \
+    google-crc32c \
+    google-resumable-media \
+    googleapis-common-protos \
+    graphviz \
+    grpc-google-iam-v1 \
+    grpcio \
+    gunicorn \
+    hmsclient-hive-3 \
+    httplib2 \
+    hvac \
+    idna \
+    idna-ssl \
+    ipython \
+    ipython-genutils \
+    itsdangerous \
+    jedi \
+    Jinja2 \
+    jmespath \
+    joblib \
+    kiwisolver \
+    kubernetes \
+    libcst \
+    lightgbm \
+    MarkupSafe \
+    matplotlib \
+    multidict \
+    mypy-extensions \
+    numpy \
+    oauthlib \
+    pandas \
+    parso \
+    pexpect \
+    pickleshare \
+    pip \
+    plotly \
+    prompt-toolkit \
+    proto-plus \
+    protobuf \
+    psycopg2-binary \
+    ptyprocess \
+    pyasn1 \
+    pyasn1-modules \
+    pycparser \
+    PyGithub \
+    Pygments \
+    PyHive \
+    PyJWT \
+    PyMySQL \
+    pyparsing \
+    python-dateutil \
+    pytz \
+    cython \
+    PyYAML \
+    requests \
+    requests-oauthlib \
+    retrying \
+    rsa \
+    s3transfer \
+    sasl \
+    scikit-learn \
+    scipy \
+    seaborn \
+    setuptools \
+    six \
+    slackclient \
+    snakebite-py3 \
+    snakeviz \
+    SQLAlchemy \
+    thrift \
+    thrift-sasl \
+    tornado \
+    traitlets \
+    typing-extensions \
+    typing-inspect \
+    uritemplate \
+    urllib3 \
+    virtualenv \
+    wcwidth \
+    websocket-client \
+    Werkzeug \
+    wrapt \
+    yarl
+
+RUN pip3 install -U PyYAML
+
+# Grant sudo privilege to wheel group without password
+RUN sed -i "s/\(^%wheel\)/#\1/g" /etc/sudoers \
+    && sed -i "s/\(^# \)\(%wheel.*NOPASS.*$\)/\2/g" /etc/sudoers

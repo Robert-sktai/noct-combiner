@@ -1,8 +1,8 @@
 - incoming_data_path: "/swing/noct"
 #- incoming_data_path: "/home/noct/noct-combiner/noct"
-- num_workers: 40
+- num_workers: 44
 #- report_interval: 60 * 60 * 24
-- report_interval: 14400
+- report_interval: 86400
 - data_expiry: 150
 - bigtable:
     project_id: "sktai-datahub"
@@ -20,4 +20,4 @@
     username: "noct-validation-bot"
     channel: "aidt-coe-swing-noti"
 #    channel: "robert-bot"
-    icon_emoji: ":x:"
+    icon_emoji: ":small_orange_diamond:"

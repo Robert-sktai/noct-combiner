@@ -23,7 +23,7 @@ class Notifier(Process):
                         self.logger.exception(e)
                         msg = f"Unexpected error: {e} [{msg}]"
                         self.error(msg)
-            time.sleep(0.5)
+            time.sleep(10)
 
     def notify_slack(self, text):
         slack_send(text,
