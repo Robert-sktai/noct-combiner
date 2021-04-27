@@ -17,7 +17,6 @@ function check_variable_is_empty() {
 }
 
 function check() {
-  check_variable_is_empty "GOOGLE_APPLICATION_CREDENTIALS"
   check_variable_is_empty "VAULT_ADDR"
   check_variable_is_empty "VAULT_TOKEN"
 }

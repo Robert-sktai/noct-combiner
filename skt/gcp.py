@@ -123,6 +123,7 @@ def bq_to_pandas(query, project_id="sktaic-datahub"):
     )
 
 def get_bigtable(instance_id, table_id, project_id="sktaic-datahub", app_profile_id=None):
+    set_gcp_credentials()
     client = bigtable.Client(project=project_id)
     instance = client.instance(instance_id)
     return instance.table(table_id=table_id, app_profile_id=app_profile_id)
