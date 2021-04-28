@@ -103,7 +103,7 @@ class FileManager(Process):
                     if not is_empty_task:
                         self.info(f"Waiting for new incoming tasks.\nThe size of pending task queue: {self.pending_tasks.qsize()}, The size of done task queue: {self.done_tasks.qsize()}")
                         is_empty_task = True
-                        self.remove_expiry()
+#                        self.remove_expiry()
                     time.sleep(0.5)
                 else:
                     is_empty_task = False
@@ -134,7 +134,7 @@ class FileManager(Process):
             if failed:
                 msg = f"""Found a missing subdir between '{self.prev_subdir}' and '{subdir}'"""
                 self.error(msg)
-                self.slack_queue.put(msg)
+#                self.slack_queue.put(msg)
             self.prev_subdir = subdir
 
     def is_expired(self, path):
@@ -156,6 +156,7 @@ class FileManager(Process):
         self.validate(subdirs)
         if len(subdirs) > 0:
             self.last_subdir = subdirs[-1]
+        self.info(f"last_subdir: {self.last_subdir}")
         size = 0
         for subdir in subdirs:
             self.debug(f"Try to collect tasks from the directory: {subdir}")

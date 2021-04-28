@@ -22,7 +22,7 @@ function check() {
 }
 
 function init() {
-  source ${CURR_DIR}/mount.sh
+#  source ${CURR_DIR}/mount.sh
   source ${CURR_DIR}/init_db.sh
 }
 
