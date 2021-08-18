@@ -15,6 +15,8 @@ class Config():
 
         self.incoming_data_path = self.documents["incoming_data_path"]
         self.num_workers = self.documents["num_workers"]
+        self.report_interval = self.documents["report_interval"]
+        self.data_expiry = self.documents["data_expiry"]
 
         self.bigtable_project_id = self.documents["bigtable"]["project_id"]
         self.bigtable_instance_id = self.documents["bigtable"]["instance_id"]
@@ -27,6 +29,10 @@ class Config():
 
         self.metadata_file = self.documents["metadata"]["file"]
         self.metadata_rowkey_url = self.documents["metadata"]["rowkey_url"]
+
+        self.slack_username = self.documents["slack"]["username"]
+        self.slack_channel = self.documents["slack"]["channel"]
+        self.slack_icon_emoji = self.documents["slack"]["icon_emoji"]
 
 if __name__ == "__main__":
     config = Config(r"./conf/config.yaml")
